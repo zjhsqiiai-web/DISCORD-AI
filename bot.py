@@ -142,49 +142,38 @@ async def meme_dropper_loop():
 
 
 # ==========================================
-# 🗣️ NEW: THE ON-DEMAND CHAT REVIVER (SLASH COMMAND)
+# 🗣️ LOOP 2: THE 1-HOUR "BORED/LONELY" CHAT WAKE-UP
 # ==========================================
-@tree.command(name="chat-revive", description="Forces the AI to drop a chill 'bored' message to revive the chat.")
-@app_commands.checks.has_permissions(administrator=True) # ONLY Admins can use this
-async def chat_revive(
-    interaction: discord.Interaction, 
-    ping_everyone: bool, 
-    delay_minutes: int = 0
-):
-    # 1. Acknowledge the command instantly so Discord doesn't give a "thinking" error
-    await interaction.response.send_message(
-        f"🔥 Bet. The AI will drop a chat reviver in {delay_minutes} minutes. (Ping @everyone: {ping_everyone})", 
-        ephemeral=True
-    )
-    
-    # 2. Wait for the delay if one was set
-    if delay_minutes > 0:
-        await asyncio.sleep(delay_minutes * 60)
-        
-    # 3. Tell Groq to act like a bored human
-    prompt = (
-        "Generate a short, single-sentence Discord message. "
-        "Act like a chill teenager who is bored, lonely, and wants someone to talk to because the chat is totally dead. "
-        "Examples of the vibe: 'chat is dead, anyone alive?' or 'bored af, someone entertain me' or 'is anyone even awake rn'. "
-        "Talk like a real gamer bro. Do NOT sound like an AI or a bot. Max 15 words. No cringe hashtags or emojis."
-    )
-    
-    try:
-        response = await ai_client.chat.completions.create(
-            messages=[{"role": "user", "content": prompt}],
-            model="openai/gpt-oss-20b"
-        )
-        chat_starter = response.choices[0].message.content.strip()
-        
-        # 4. Format the final message based on the ping setting
-        final_message = f"@everyone {chat_starter}" if ping_everyone else chat_starter
-        
-        # 5. Drop it in the exact channel where the command was run
-        await interaction.channel.send(final_message)
-        
-    except Exception as e:
-        print(f"Chat Revive Command Error: {e}")
-        await interaction.channel.send("Bro, my core system just lagged out. Couldn't drop the reviver.")
+@tasks.loop(hours=1)
+async def chat_wakeupper_loop():
+    for channel in discord_client.get_all_channels():
+        if channel.name == "♠️︱chat︱♠️" and isinstance(channel, discord.TextChannel):
+            try:
+                # Tell Groq to act like a bored human looking for someone to talk to
+                prompt = (
+                    "Generate a short, single-sentence Discord message. "
+                    "Act like a chill teenager who is bored, lonely, and wants someone to talk to because the chat is totally dead. "
+                    "Examples of the vibe: 'chat is dead, anyone alive?' or 'bored af, someone entertain me' or 'is anyone even awake rn'. "
+                    "Talk like a real gamer bro. Do NOT sound like an AI or a bot. Max 15 words. No cringe hashtags or emojis."
+                )
+                
+                response = await ai_client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model="openai/gpt-oss-20b"
+                )
+                chat_starter = response.choices[0].message.content.strip()
+                
+                # 🎲 25% chance to ping @everyone, 75% chance to just send it normally
+                if random.random() <= 0.25:
+                    await channel.send(f"@everyone {chat_starter}")
+                    print("🔥 Sent the bored human reminder (WITH PING).")
+                else:
+                    await channel.send(chat_starter)
+                    print("🔥 Sent the bored human reminder (NO PING).")
+                    
+                 
+            except Exception as e:
+                print(f"Wake-up loop error: {e}")
 
 
 
